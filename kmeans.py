@@ -35,16 +35,21 @@ class Vector:
     def __str__(self):
         return "Vector: " + str(['%.4f' % cord for cord in self.cordinates])
 
+
     def copy(self):
         return Vector([cord for cord in self.cordinates])
         
-    
-    def add_or_sub(self, other, to_add: bool = True):
+    def __add__(self, other):
+        cordinates = [0] * self.size
         for i in range(self.size):
-            if to_add:
-                self.cordinates[i] += other.cordinates[i]
-            else:
-                self.cordinates[i] -= other.cordinates[i]
+            cordinates[i]  = self.cordinates[i] + other.cordinates[i]
+        return Vector(cordinates)
+
+    def __sub__(self, other):
+        cordinates = [0] * self.size
+        for i in range(self.size):
+            cordinates[i]  = self.cordinates[i] - other.cordinates[i]
+        return Vector(cordinates)
 
     def distance(self, other):
         sum = 0
@@ -59,12 +64,15 @@ class Vector:
             self.cluster = new_cluster
             new_cluster.add_vector(self)
 
+    def __truediv__(self, other: int):
+        return Vector([x / other for x in self.cordinates])
 
 class Cluster:
     def __init__(self, centroid: Vector, vecotr_size: int):
         self.centroid = centroid
         self.vectors = []
-        self.sum_vector = Vector([0] * vecotr_size)
+        self.vecotr_size = vecotr_size
+        self.sum_vector = Vector([float(0)] * vecotr_size)
 
     @property
     def size(self):
@@ -72,18 +80,18 @@ class Cluster:
 
     def remove_vector(self, vector):
         self.vectors.remove(vector)
-        self._updte_sum_vector(vector, to_add=False)
+        self.sum_vector -= vector
 
     def add_vector(self, vector):
         self.vectors.append(vector)
-        self._updte_sum_vector(vector, to_add=True)
-
-    def _updte_sum_vector(self, vector, to_add: bool):
-        self.sum_vector.add_or_sub(vector, to_add)
+        self.sum_vector += vector   
 
     def updates_centroid(self):
-        for i in range(self.sum_vector.size):
-            self.centroid[i] = self.sum_vector[i] / self.size
+        sum = Vector([0] * self.vecotr_size)
+        for vector in self.vectors:
+            sum = sum + vector
+
+        self.centroid = (sum/len(self.vectors)).copy()
 
 
 class KMeans:
@@ -117,26 +125,24 @@ class KMeans:
             invalid_input()
 
     def get_closet_cluster(self, vector: Vector):
-        min = [self.clusters[0], vector.distance(self.clusters[0].centroid)]
-
-        for i in range(1, len(self.clusters)):
-            distance = vector.distance(self.clusters[i].centroid)
-            if distance < min[1]:
-                min[0] = self.clusters[i]
-                min[1] = distance
-        return min[0]
+        distances = []
+        for i in range(len(self.clusters)):
+            distances.append((self.clusters[i], vector.distance(self.clusters[i].centroid)))
+        return min(distances, key=lambda x: x[1])[0]
 
     def updates_centroids(self):
         valid_norms_counter = 0
-        for i in range(len(self.clusters)):
+        size = 0
+        for i in range(self.k):
             cluster = self.clusters[i]
             old_centroid = cluster.centroid.copy()
             cluster.updates_centroid()
 
             diff_vector = old_centroid.copy()
-            diff_vector.add_or_sub(cluster.centroid, to_add=False)
+            diff_vector -= cluster.centroid
             if diff_vector.norm < EPSILON:
                 valid_norms_counter += 1
+            size+= cluster.size
 
         return valid_norms_counter
 
@@ -147,6 +153,11 @@ class KMeans:
             if vector.cluster != closest:
                 vector.update_cluster(closest)
 
+    def save_output_to_file(self):
+        with open(self.output_file, 'w') as f:
+            for cluster in self.clusters:
+                f.write("".join('%.4f,'%c for c in cluster.centroid.cordinates)[:-1] + '\n')
+
     def run(self):
         self.create_vecotrs()
         self.k_validation()
@@ -154,23 +165,18 @@ class KMeans:
 
         iteration_number = 0
         num_of_valid_norms = 0 # number of Clusters that thier centroid norm is lower than EPSILON
-        while (iteration_number < self.max_iter ):
+        while (iteration_number < self.max_iter and num_of_valid_norms < self.k):
             iteration_number += 1
-            print(iteration_number)
             self.assign_to_cluster()
             num_of_valid_norms = self.updates_centroids()
         
-        for cluster in self.clusters:
-            print(cluster.centroid)
-
-# def get_vector_size():
+        self.save_output_to_file()
 
 
 def args_parsing():
     max_iter = 200
     input_file_index = 2
-    output_file_index = input_file_index + 1
-    
+
     args = sys.argv
     if not(4 <= len(args) <= 5):
         invalid_input()
@@ -189,7 +195,7 @@ def args_parsing():
         input_file_index += 1
     
     input_file = args[input_file_index]
-    output_file = args[output_file_index]    
+    output_file = args[input_file_index+1]    
 
     return KMeans(k, max_iter, input_file, output_file)
     
