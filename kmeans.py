@@ -1,7 +1,5 @@
 import sys
 
-from sklearn import cluster
-
 
 EPSILON = 0.001
 
