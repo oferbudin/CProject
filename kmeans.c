@@ -3,7 +3,7 @@
 #include <math.h>
 #define EPSILON  0.01
 
-int nunberOfVectors = 0;
+int numberOfVectors = 0;
 int vectorSize = 1;
 
 struct cluster {
@@ -31,7 +31,7 @@ void printInvalidInput(){
 int isNum(char* str){
     int i=0;
     while(str[i] != '\0'){
-        if(!(((int) str[i] >= 48) || ((int) str[i] <= 57))){
+        if(str[i] == '.'){
             return 0;
         }
         i++;
@@ -84,19 +84,19 @@ double** readVector(char* filename){
 
     FILE *file = fopen(filename, "r");
     while(fscanf(file, "%lf%c", &cordinate, &c) == 2){
-        if(nunberOfVectors == 0){
+        if(numberOfVectors == 0){
             if(c == ','){
                 vectorSize++;
             }
         }
         if(c == '\n'){
-            nunberOfVectors++;
+            numberOfVectors++;
         }
     }
 
     fseek(file, 0,0);
 
-    vectors = getMatrix(nunberOfVectors, vectorSize);
+    vectors = getMatrix(numberOfVectors, vectorSize);
     
      while(fscanf(file, "%lf%c", &cordinate, &c) == 2){
         if(c == '\n'){
@@ -113,6 +113,18 @@ double** readVector(char* filename){
     return vectors;
 }
 
+void createOutput(char* filename, struct cluster** clusters, int k){
+    int i, j;
+    FILE *file = fopen(filename, "w");
+    for(i = 0; i < k; i++){
+        for(j = 0; j < vectorSize - 1; j++){
+            fprintf(file, "%.4f," , clusters[i] -> centroid[j]);
+        }
+        fprintf(file, "%.4f\n" , clusters[i] -> centroid[vectorSize-1]);
+    }
+    fclose(file);
+}
+
 struct cluster** initClusters(double** vectors, int k) {
     int i, j;
     struct cluster** clusters = (struct cluster **) calloc(k, sizeof(struct cluster*));
@@ -122,7 +134,7 @@ struct cluster** initClusters(double** vectors, int k) {
         for (j = 0; j < vectorSize; j++){
             clust -> centroid[j] = vectors[i][j];
         }
-        clust -> vectors = getMatrix(nunberOfVectors, vectorSize);
+        clust -> vectors = getMatrix(numberOfVectors, vectorSize);
         clust -> size = 0;
         clust -> sumVector = (double*) calloc(vectorSize, sizeof(double));
         clust -> index = i;
@@ -192,25 +204,53 @@ void addVectorToCluster(double* vector, struct cluster* cluster, int vectorIndex
     }
 }
 
-void updateClusterCentroid(struct cluster* cluster) {
+double* copyVector(double* v){
     int i;
+    double* copy = (double*) calloc(vectorSize, sizeof(double));
+    for(i = 0; i < vectorSize; i++){
+        copy[i] = v[i];
+    }
+    return copy;
+}
+
+int normSmallerThanEpsilon(double* c1, double* c2){
+    double delta;
+    int i=0;
+    
+    for(i=0; i < vectorSize; i++){
+        delta += pow(c1[i] - c2[i],2);
+    }
+    if(pow(delta, 0.5) < EPSILON){
+        return 1;
+    }
+    return 0;
+}
+
+int updateClusterCentroid(struct cluster* cluster) {
+    int i;
+    int res;
+    double* oldCentroid = copyVector(cluster -> centroid);
+
     for (i = 0; i < vectorSize; i++) {
         cluster -> centroid[i] = cluster -> sumVector[i] / cluster -> size;
     }
+    res = normSmallerThanEpsilon(oldCentroid, cluster -> centroid);
+    free(oldCentroid);
+    return res;
 }
 
 int main(int argc, char* argv[]){
-    int i;
+    int i , j, k;
     int iterIndex = 0;
     int minClusterIndex;
     int maxIter = 200;
-    int k;
     int inputFileIndex = 2;
     char* inputFile;
     char* outputFile;
     double** vectors;
     double* vector;
     struct cluster** clusters;
+    int numOfValidCentroids;
 
     if( (argc < 4) || (argc > 5)){
         printInvalidInput();
@@ -226,26 +266,42 @@ int main(int argc, char* argv[]){
     printf("%d %d %s %s \n", k, maxIter, inputFile, outputFile);
     
     vectors = readVector(inputFile);
+    if(! ((k > 1) && (k < numberOfVectors))){
+        printInvalidInput();
+        return 1;
+    }
     clusters = initClusters(vectors, k);
 
-    while (iterIndex < maxIter){
-        for(i = 0; i < nunberOfVectors; i++) {
+    while ((iterIndex < maxIter) && (numOfValidCentroids < k)){
+        numOfValidCentroids = 0;
+        for(i = 0; i < numberOfVectors; i++) {
             vector = vectors[i];
             minClusterIndex = getClosestCluster(vector, clusters, k);
             removeVectorFromOtherClusters(clusters, k, i);
             addVectorToCluster(vector, clusters[minClusterIndex], i);
         }
         for (i = 0; i < k; i++) {
-            updateClusterCentroid(clusters[i]);
+            numOfValidCentroids += updateClusterCentroid(clusters[i]);
         }
         iterIndex++;
     }
+    createOutput(outputFile, clusters, k);
 
-    for (i = 0; i < k; i++) {
-        printf("Cluster %d centroid: ", i);
-        printVector( clusters[i] -> centroid, vectorSize);
+    /* Free Vectors */
+    for(i = 0; i < numberOfVectors; i++){
+        free(vectors[i]);
+    } 
+    for(i = 0; i < k; i++){
+        free(clusters[i] -> sumVector);
+        free(clusters[i] -> centroid);
+        for(j = 0; j < numberOfVectors; j++){
+             free(clusters[i] -> vectors[j]);
+        } 
+        free(clusters[i] -> vectors);
+        free(clusters[i]);
     }
-
+    free(clusters);
+    free(vectors);
 
     return 0;
 }
