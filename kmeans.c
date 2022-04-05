@@ -89,7 +89,7 @@ double** readVector(char* filename){
                 vectorSize++;
             }
         }
-        if(c == '\n'){
+        if((int)c == 13){
             numberOfVectors++;
         }
     }
@@ -99,7 +99,7 @@ double** readVector(char* filename){
     vectors = getMatrix(numberOfVectors, vectorSize);
     
      while(fscanf(file, "%lf%c", &cordinate, &c) == 2){
-        if(c == '\n'){
+        if((int) c == 13){
             vectors[row][column] = cordinate;
             column = 0;
             row++;
