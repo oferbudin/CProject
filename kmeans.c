@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#define EPSILON  0.01
+#define EPSILON  0.001
 
 int numberOfVectors = 0;
 int vectorSize = 1;
@@ -26,6 +26,10 @@ void printVector(double* v, int size) {
 
 void printInvalidInput(){
     printf("Invalid Input!\n");
+}
+
+void printError(){
+    printf("An Error Has Occurred\n");
 }
 
 int isNum(char* str){
@@ -55,7 +59,13 @@ double** getMatrix(int r, int c){
     double **a;
     int i;
     p = calloc(r*c, sizeof(double));
+    if (!p){
+        return NULL;
+    }
     a = calloc(r, sizeof(double*));
+    if (!a){
+        return NULL;
+    }
     for(i=0; i<r; i++){
         a[i] = p + i * c;
     }
@@ -97,6 +107,9 @@ double** readVector(char* filename){
     fseek(file, 0,0);
 
     vectors = getMatrix(numberOfVectors, vectorSize);
+    if (!vectors){
+        return NULL;
+    }
     
      while(fscanf(file, "%lf%c", &cordinate, &c) == 2){
         if((int) c == 13){
@@ -128,15 +141,30 @@ void createOutput(char* filename, struct cluster** clusters, int k){
 struct cluster** initClusters(double** vectors, int k) {
     int i, j;
     struct cluster** clusters = (struct cluster **) calloc(k, sizeof(struct cluster*));
+    if(!clusters){
+        return NULL;
+    }
     for (i = 0; i < k; i++) {
         struct cluster *clust = (struct cluster *) calloc(1, sizeof(struct cluster));
+        if(!clust){
+            return NULL;
+        }
          clust -> centroid = (double*) calloc(vectorSize, sizeof(double));
+        if(! clust -> centroid){
+            return NULL;
+        }
         for (j = 0; j < vectorSize; j++){
             clust -> centroid[j] = vectors[i][j];
         }
         clust -> vectors = getMatrix(numberOfVectors, vectorSize);
+        if (! clust -> vectors) {
+            return NULL;
+        }
         clust -> size = 0;
         clust -> sumVector = (double*) calloc(vectorSize, sizeof(double));
+        if (!clust -> sumVector) {
+            return NULL;
+        }
         clust -> index = i;
         clusters[i] = clust;
     }
@@ -207,6 +235,9 @@ void addVectorToCluster(double* vector, struct cluster* cluster, int vectorIndex
 double* copyVector(double* v){
     int i;
     double* copy = (double*) calloc(vectorSize, sizeof(double));
+    if(!copy) {
+        return NULL;
+    }
     for(i = 0; i < vectorSize; i++){
         copy[i] = v[i];
     }
@@ -230,6 +261,9 @@ int updateClusterCentroid(struct cluster* cluster) {
     int i;
     int res;
     double* oldCentroid = copyVector(cluster -> centroid);
+    if(!oldCentroid){
+        return -1;
+    }
 
     for (i = 0; i < vectorSize; i++) {
         cluster -> centroid[i] = cluster -> sumVector[i] / cluster -> size;
@@ -240,7 +274,7 @@ int updateClusterCentroid(struct cluster* cluster) {
 }
 
 int main(int argc, char* argv[]){
-    int i , j, k;
+    int i , k;
     int iterIndex = 0;
     int minClusterIndex;
     int maxIter = 200;
@@ -266,12 +300,19 @@ int main(int argc, char* argv[]){
     printf("%d %d %s %s \n", k, maxIter, inputFile, outputFile);
     
     vectors = readVector(inputFile);
+    if (!vectors) {
+        printError();
+        return 1;
+    }
     if(! ((k > 1) && (k < numberOfVectors))){
         printInvalidInput();
         return 1;
     }
     clusters = initClusters(vectors, k);
-
+    if (!clusters) {
+        printError();
+        return 1;
+    }
     while ((iterIndex < maxIter) && (numOfValidCentroids < k)){
         numOfValidCentroids = 0;
         for(i = 0; i < numberOfVectors; i++) {
@@ -281,22 +322,15 @@ int main(int argc, char* argv[]){
             addVectorToCluster(vector, clusters[minClusterIndex], i);
         }
         for (i = 0; i < k; i++) {
-            numOfValidCentroids += updateClusterCentroid(clusters[i]);
+            numOfValidCentroids = numOfValidCentroids + updateClusterCentroid(clusters[i]);
         }
         iterIndex++;
     }
     createOutput(outputFile, clusters, k);
-
-    /* Free Vectors */
-    for(i = 0; i < numberOfVectors; i++){
-        free(vectors[i]);
-    } 
+	
     for(i = 0; i < k; i++){
         free(clusters[i] -> sumVector);
         free(clusters[i] -> centroid);
-        for(j = 0; j < numberOfVectors; j++){
-             free(clusters[i] -> vectors[j]);
-        } 
         free(clusters[i] -> vectors);
         free(clusters[i]);
     }
