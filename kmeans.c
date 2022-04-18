@@ -331,10 +331,12 @@ int main(int argc, char* argv[]){
     for(i = 0; i < k; i++){
         free(clusters[i] -> sumVector);
         free(clusters[i] -> centroid);
+	free(clusters[i] -> vectors[0]);
         free(clusters[i] -> vectors);
         free(clusters[i]);
     }
     free(clusters);
+    free(vectors[0]);
     free(vectors);
 
     return 0;
