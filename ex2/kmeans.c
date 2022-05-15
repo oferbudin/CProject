@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#define EPSILON  0.001
 
+int epsilon;
 int numberOfVectors = 0;
 int vectorSize = 1;
 
@@ -140,7 +140,7 @@ void createOutput(char* filename, struct cluster** clusters, int k){
     fclose(file);
 }
 
-struct cluster** initClusters(double** vectors, int k) {
+struct cluster** initClusters(double** vectors, int k, double** centroids) {
     int i, j;
     struct cluster** clusters = (struct cluster **) calloc(k, sizeof(struct cluster*));
     if(!clusters){
@@ -156,7 +156,7 @@ struct cluster** initClusters(double** vectors, int k) {
             return NULL;
         }
         for (j = 0; j < vectorSize; j++){
-            clust -> centroid[j] = vectors[i][j];
+            clust -> centroid[j] = centroids[i][j];
         }
         clust -> vectors = getMatrix(numberOfVectors, vectorSize);
         if (! clust -> vectors) {
@@ -253,7 +253,7 @@ int normSmallerThanEpsilon(double* c1, double* c2){
     for(i=0; i < vectorSize; i++){
         delta += pow(c1[i] - c2[i],2);
     }
-    if(pow(delta, 0.5) < EPSILON){
+    if(pow(delta, 0.5) < epsilon){
         return 1;
     }
     return 0;
@@ -275,33 +275,59 @@ int updateClusterCentroid(struct cluster* cluster) {
     return res;
 }
 
+double** convertPyObjectToMatrix(PyObject *po, int lines, int columns) {
+    int i, j;
+    PyObject *c;
+    double **matrix;
+    matrix = getMatrix(lines, columns);
+    if (!matrix) {
+        return NULL;
+    }
+     for (i = 0; i < lines; ++i) {
+        for (j = 0; j < columns; ++j) {
+            c = PyList_GetItem(po, i * columns + j);
+            matrix[i][j] = PyFloat_AsDouble(c);
+        }
+    }
+    return matrix;
+}
+
 static PyObject *fit(PyObject *self, PyObject *args){
-    int i , k;
+    int i , k, j;
     int iterIndex = 0;
     int minClusterIndex;
     int maxIter = 200;
-    int inputFileIndex = 2;
-    char* inputFile;
-    char* outputFile;
-    double** vectors;
+    double **vectors;
+    PyObject *pyVectors;
+    PyObject *pyCentroids;
     double* vector;
+    double **centroids;
     struct cluster** clusters;
-    int numOfValidCentroids;
-    
-    vectors 
-    if (!vectors) {
+    int numOfValidCentroids = 0;
+    PyObject *res;
+
+    if( !PyArg_ParseTuple(args, "OOiiiii", &pyVectors, &pyCentroids, &maxIter, &epsilon, &k, &vectorSize, &numberOfVectors)) {
+        return NULL;
+    }
+
+    vectors = convertPyObjectToMatrix(pyVectors, numberOfVectors, vectorSize);
+    if(!vectors){
         printError();
-        return 1;
+        return NULL;
     }
-    if(! ((k > 1) && (k < numberOfVectors))){
-        printInvalidInput();
-        return 1;
+
+    centroids = convertPyObjectToMatrix(pyCentroids, k, vectorSize);
+    if(!centroids){
+        printError();
+        return NULL;
     }
-    clusters = initClusters(vectors, k);
+
+    clusters = initClusters(vectors, k, centroids);
     if (!clusters) {
         printError();
-        return 1;
+        return NULL;
     }
+
     while ((iterIndex < maxIter) && (numOfValidCentroids < k)){
         numOfValidCentroids = 0;
         for(i = 0; i < numberOfVectors; i++) {
@@ -315,8 +341,17 @@ static PyObject *fit(PyObject *self, PyObject *args){
         }
         iterIndex++;
     }
-    createOutput(outputFile, clusters, k);
-	
+    // preping the result
+    res = PyList_New(0);
+    PyObject *pylist;
+    for (i = 0; i < k; ++i) {
+        pylist = PyList_New(0);
+        for (j = 0; j < vectorSize; ++j) {
+            if (PyList_Append(pylist, PyFloat_FromDouble(clusters[i]->centroid[j])) != 0) return NULL;
+        }
+        if (PyList_Append(res, pylist) != 0) return NULL;
+    }	
+
     for(i = 0; i < k; i++){
         free(clusters[i] -> sumVector);
         free(clusters[i] -> centroid);
@@ -328,7 +363,7 @@ static PyObject *fit(PyObject *self, PyObject *args){
     free(vectors[0]);
     free(vectors);
 
-    return 0;
+    return res;
 }
 
 static PyMethodDef capiMethods[] = {
