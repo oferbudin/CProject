@@ -1,3 +1,5 @@
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -245,7 +247,7 @@ double* copyVector(double* v){
 }
 
 int normSmallerThanEpsilon(double* c1, double* c2){
-    double delta;
+    double delta = 0;
     int i=0;
     
     for(i=0; i < vectorSize; i++){
@@ -273,7 +275,7 @@ int updateClusterCentroid(struct cluster* cluster) {
     return res;
 }
 
-int main(int argc, char* argv[]){
+static PyObject *fit(PyObject *self, PyObject *args){
     int i , k;
     int iterIndex = 0;
     int minClusterIndex;
@@ -285,21 +287,8 @@ int main(int argc, char* argv[]){
     double* vector;
     struct cluster** clusters;
     int numOfValidCentroids;
-
-    if( (argc < 4) || (argc > 5)){
-        printInvalidInput();
-        return 1;
-    }
-    k = strToInt(argv[1]);
-    if(isNum(argv[2]) == 1){
-        maxIter = strToInt(argv[2]);
-        inputFileIndex++;
-    } 
-    inputFile = argv[inputFileIndex++];
-    outputFile = argv[inputFileIndex];
-    printf("%d %d %s %s \n", k, maxIter, inputFile, outputFile);
     
-    vectors = readVector(inputFile);
+    vectors 
     if (!vectors) {
         printError();
         return 1;
@@ -340,4 +329,30 @@ int main(int argc, char* argv[]){
     free(vectors);
 
     return 0;
+}
+
+static PyMethodDef capiMethods[] = {
+    {"fit",
+     (PyCFunction) fit, 
+     METH_VARARGS,
+     PyDoc_STR("Calculates k menas on a provided data set and centroids")},
+     {NULL, NULL, 0, NULL}
+};
+
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "mykmeanssp",
+    NULL,
+    -1,
+    capiMethods
+};
+
+PyMODINIT_FUNC
+PyInit_mykmeanssp(void) {
+    PyObject *m;
+    m = PyModule_Create(&moduledef);
+    if (!m) {
+        return NULL;
+    }
+    return m;
 }
