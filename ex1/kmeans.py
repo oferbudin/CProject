@@ -1,6 +1,7 @@
 import sys
 
 
+
 EPSILON = 0.001
 
 def invalid_input():
@@ -167,7 +168,7 @@ class KMeans:
             iteration_number += 1
             self.assign_to_cluster()
             num_of_valid_norms = self.updates_centroids()
-        
+        print(iteration_number)
         self.save_output_to_file()
 
 
@@ -204,4 +205,7 @@ def main():
 
 
 if __name__ == "__main__":
+    import time
+    s = time.time()
     main()
+    print(time.time() - s)
