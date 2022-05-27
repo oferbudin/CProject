@@ -76,12 +76,12 @@ def args_parsing():
 
     if len(args) == 5:
         max_iter = 300
-        epsilon = int(args[2])
+        epsilon = float(args[2])
         input_file1 = args[3]
         input_file2 = args[4]
     else:
         max_iter = int(args[2])
-        epsilon = int(args[3])
+        epsilon = float(args[3])
         input_file1 = args[4]
         input_file2 = args[5]
 
@@ -95,24 +95,27 @@ def print_list(lst):
 
 
 def main():
-    kmeans = args_parsing()
-    kmeans.algorithm1()
-    centroids = [kmeans.vectors_list[centroid_index] for centroid_index in kmeans.centroids]
+    try:
+        kmeans = args_parsing()
+        kmeans.algorithm1()
+        centroids = [kmeans.vectors_list[centroid_index] for centroid_index in kmeans.centroids]
 
-    centroids_for_c = []
-    for centroid in centroids:
-            for c in centroid:
-                centroids_for_c.append(c)
+        centroids_for_c = []
+        for centroid in centroids:
+                for c in centroid:
+                    centroids_for_c.append(c)
 
-    vectors_for_c = []
-    for vector in kmeans.vectors_list:
-        for v in vector:
-            vectors_for_c.append(v)
+        vectors_for_c = []
+        for vector in kmeans.vectors_list:
+            for v in vector:
+                vectors_for_c.append(v)
 
-    final_centroids = mykmeanssp.fit(vectors_for_c, centroids_for_c, kmeans.max_iter, kmeans.epsilon, kmeans.k, len(kmeans.vectors_list[0]), len(kmeans.vectors_list))
-    print_list(kmeans.centroids)
-    for centroid in final_centroids:
-        print_float_list(centroid) 
+        final_centroids = mykmeanssp.fit(vectors_for_c, centroids_for_c, kmeans.max_iter, kmeans.epsilon, kmeans.k, len(kmeans.vectors_list[0]), len(kmeans.vectors_list))
+        print_list(kmeans.centroids)
+        for centroid in final_centroids:
+            print_float_list(centroid) 
+    except:
+        print("An Error Has Occurred")
 
 if __name__ == '__main__':
     main()

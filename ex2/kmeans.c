@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-int epsilon;
+double epsilon;
 int numberOfVectors = 0;
 int vectorSize = 1;
 
@@ -306,7 +306,7 @@ static PyObject *fit(PyObject *self, PyObject *args){
     int numOfValidCentroids = 0;
     PyObject *res;
 
-    if( !PyArg_ParseTuple(args, "OOiiiii", &pyVectors, &pyCentroids, &maxIter, &epsilon, &k, &vectorSize, &numberOfVectors)) {
+    if( !PyArg_ParseTuple(args, "OOidiii", &pyVectors, &pyCentroids, &maxIter, &epsilon, &k, &vectorSize, &numberOfVectors)) {
         return NULL;
     }
 
